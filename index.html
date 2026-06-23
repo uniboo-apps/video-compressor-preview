@@ -255,7 +255,7 @@ const CORE_ST = `https://unpkg.com/@ffmpeg/core@${CORE_VER}/dist/umd`;
 const $ = id => document.getElementById(id);
 
 let ffmpeg = null, ffmpegLoaded = false, encoding = false;
-let currentFile = null, durationSec = 0, vidW = 0, vidH = 0;
+let currentFile = null, durationSec = 0, displayW = 0, displayH = 0;
 let resultBlob = null, resultName = "preview.mp4";
 let currentMode = "album";
 let origUrl = "", outUrl = "";
@@ -326,13 +326,13 @@ function readSettings(){
 }
 
 function outputSize(settings){
-  if(!vidW || !vidH) return { w:0, h:0, scaled:false };
-  if(settings.long === "keep") return { w:even(vidW), h:even(vidH), scaled:false };
+  if(!displayW || !displayH) return { w:0, h:0, scaled:false };
+  if(settings.long === "keep") return { w:even(displayW), h:even(displayH), scaled:false };
   const maxLong = parseInt(settings.long, 10);
-  const srcLong = Math.max(vidW, vidH);
-  if(!maxLong || srcLong <= maxLong) return { w:even(vidW), h:even(vidH), scaled:false };
+  const srcLong = Math.max(displayW, displayH);
+  if(!maxLong || srcLong <= maxLong) return { w:even(displayW), h:even(displayH), scaled:false };
   const scale = maxLong / srcLong;
-  return { w:even(vidW * scale), h:even(vidH * scale), scaled:true };
+  return { w:even(displayW * scale), h:even(displayH * scale), scaled:true };
 }
 
 function estimateBytes(settings){
@@ -365,7 +365,7 @@ function updatePlan(){
     q.textContent = "";
   }
   const vf = [];
-  if(out.w && out.h && (out.w !== vidW || out.h !== vidH)) vf.push(`scale=${out.w}:${out.h}:flags=bicubic`);
+  if(out.w && out.h && (out.w !== displayW || out.h !== displayH)) vf.push(`scale=${out.w}:${out.h}:flags=bicubic`);
   if(s.fps !== "keep") vf.push(`fps=${s.fps}`);
   const args = [
     "ffmpeg -i input",
@@ -391,6 +391,7 @@ async function probeMeta(file){
     v.preload = "metadata";
     v.onloadedmetadata = () => {
       URL.revokeObjectURL(url);
+      // videoWidth/videoHeight are the display size after iPhone MOV rotation metadata is applied.
       resolve({ duration:v.duration, w:v.videoWidth, h:v.videoHeight });
     };
     v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("動画を読み込めませんでした")); };
@@ -415,9 +416,9 @@ async function handleFile(file){
   $("origVideo").src = url;
   try{
     const meta = await probeMeta(file);
-    durationSec = meta.duration; vidW = meta.w; vidH = meta.h;
+    durationSec = meta.duration; displayW = meta.w; displayH = meta.h;
     $("origDur").textContent = fmtDur(durationSec);
-    $("origRes").textContent = `${vidW} × ${vidH}`;
+    $("origRes").textContent = `${displayW} × ${displayH}`;
     const kbps = Math.round((file.size * 8 / 1000) / durationSec);
     $("origRate").textContent = `${kbps} kbps`;
     $("btnEncode").disabled = false;
@@ -440,7 +441,7 @@ function resetResult(){
 }
 
 function resetAll(){
-  currentFile = null; durationSec = 0; vidW = 0; vidH = 0;
+  currentFile = null; durationSec = 0; displayW = 0; displayH = 0;
   $("fileInput").value = "";
   if(origUrl){ URL.revokeObjectURL(origUrl); origUrl = ""; }
   $("origVideo").removeAttribute("src");
@@ -458,7 +459,7 @@ async function encode(){
   const inName = "input" + ext;
   const outName = "output.mp4";
   const vf = [];
-  if(out.w !== vidW || out.h !== vidH) vf.push(`scale=${out.w}:${out.h}:flags=bicubic`);
+  if(out.w !== displayW || out.h !== displayH) vf.push(`scale=${out.w}:${out.h}:flags=bicubic`);
   if(s.fps !== "keep") vf.push(`fps=${s.fps}`);
   const args = [
     "-i", inName,
